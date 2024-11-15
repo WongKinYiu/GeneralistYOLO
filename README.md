@@ -10,17 +10,28 @@ Generalist YOLO: Towards Real-Time End-to-End Multi-Task Visual Language Models
 
 ## Performance 
 
-...
+#### Generalist Visual Language Tasks
+
+| Model | Size | \#Param. | FLOPs |  AP<sub>e2e/nms</sub><sup>box</sup> | AP<sub>e2e/nms</sub><sup>mask</sup>  | mIoU<sub>164k/10k</sub><sup>semantic</sup>  | mIoU<sup>stuff</sup> | PQ<sup>panoptic</sup> | BLEU@4<sup>caption</sup> | CIDEr<sup>caption</sup> |
+| :-- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| [**GeneralistYOLO**]() | 640 | 37.3M | \~195.2G | **52.3%/52.7%** | **42.9%/43.1%** | **44.4%/51.7%** | **59.4%** | **44.3%** | **38.5** | **121.0** |
+<!--| [****]() |  | M | G | **%/%** | **%/%** | **%/%** | **%** | **%** | **** | **** |-->
 
 ## Installation 
+
+#### Generalist Visual Language Tasks
 
 ...
 
 ## Evaluation
 
+#### Generalist Visual Language Tasks
+
 ...
 
 ## Training  
+
+#### Generalist Visual Language Tasks
 
 ...
 
@@ -34,6 +45,17 @@ Generalist YOLO: Towards Real-Time End-to-End Multi-Task Visual Language Models
   year={2025}
 }
 ```
+
+## Coming Soon
+
+<details><summary> <b>Coming soon</b> </summary>
+
+* Visual Grounding
+* Whole Body Pose Estimation
+* Video Understanding Tasks
+* Specific Vision Tasks
+
+</details>
 
 ## Contributors
 
