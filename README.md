@@ -37,7 +37,7 @@ Generalist YOLO: Towards Real-Time End-to-End Multi-Task Visual Language Models
 
 ## Contributors
 
-<details><summary> <b>Expand</b> </summary>
+<details><summary> <b>Contributors</b> </summary>
     
 * @ws6125 : Most of generic vision tasks and visual language tasks.
 * @110598074 : Most of specific vision tasks.
@@ -51,9 +51,14 @@ Generalist YOLO: Towards Real-Time End-to-End Multi-Task Visual Language Models
 
 ## Acknowledgements
 
-<details><summary> <b>Expand</b> </summary>
+<details><summary> <b>Reference Codes</b> </summary>
 
 * [https://github.com/WongKinYiu/yolov9](https://github.com/WongKinYiu/yolov9)
+* [https://github.com/davidnvq/grit](https://github.com/davidnvq/grit)
+* [https://github.com/djiajunustc/TransVG](https://github.com/djiajunustc/TransVG)
+* [https://github.com/Robertwyq/PanoOcc](https://github.com/Robertwyq/PanoOcc)
+* [https://github.com/junjiehe96/FastInst](https://github.com/junjiehe96/FastInst)
+* [https://github.com/fan23j/yolov7-pose-whole-body](https://github.com/fan23j/yolov7-pose-whole-body)
 * ...
 
 </details>
