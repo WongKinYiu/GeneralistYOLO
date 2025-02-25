@@ -761,6 +761,7 @@ torchrun --nproc_per_node=8 --nnodes=2 --node_rank=$NODE_RANK --master_addr=$MAS
 * @F84064014 : Video panoptic segmentation.
 * @k22708038 : Visual grounding.
 * @HuChengXue : Whole body pose estimation.
+* @waue0920 : Multiple node training.
 * ...
 
 </details>
