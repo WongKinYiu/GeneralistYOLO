@@ -1,5 +1,5 @@
 # GeneralistYOLO
-Generalist YOLO: Towards Real-Time End-to-End Multi-Task Visual Language Models
+[Generalist YOLO: Towards Real-Time End-to-End Multi-Task Visual Language Models](https://openaccess.thecvf.com/content/WACV2025/html/Chang_Generalist_YOLO_Towards_Real-Time_End-to-End_Multi-Task_Visual_Language_Models_WACV_2025_paper.html)
 
 <div align="center">
     <a href="./">
@@ -747,7 +747,8 @@ python caption/predict.py --weights 'gyolo.pt' --source $SOURCE --data data/coco
   title={{Generalist YOLO}: Towards Real-Time End-to-End Multi-Task Visual Language Models},
   author={Chang, Hung-Shuo and Wang, Chien-Yao and Wang, Richard and Chou, Gene and Liao, Hong-Yuan Mark},
   booktitle={IEEE/CVF Winter Conference on Applications of Computer Vision (WACV)},
-  year={2025}
+  year={2025},
+  pages={6217-6227}
 }
 ```
 
@@ -757,6 +758,7 @@ python caption/predict.py --weights 'gyolo.pt' --source $SOURCE --data data/coco
 
 * Visual Grounding
 * Whole Body Pose Estimation
+* Visual Question Answering
 * Video Understanding Tasks
 * Specific Vision Tasks
 
