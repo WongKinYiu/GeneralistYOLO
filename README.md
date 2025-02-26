@@ -730,6 +730,16 @@ torchrun --nproc_per_node=8 --nnodes=2 --node_rank=$NODE_RANK --master_addr=$MAS
 
 <!--謝謝你，9527。-->
 
+
+## Inference
+
+```
+python caption/predict.py --weights 'gyolo.pt' --source $SOURCE --data data/coco.yaml --img 640 --device 0 --export-mask
+```
+
+**Note: Please replace `$SOURCE` with the image/video you want to infer.**
+
+
 ## Citation
 
 ```
