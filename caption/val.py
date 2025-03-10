@@ -236,7 +236,7 @@ def run(
     # Dataloader
     if not training:
         if pt and not single_cls:  # check --weights are trained on --data
-            ncm = model.model.nc
+            ncm = model.nc if hasattr(model, 'nc') else model.model.nc
             assert ncm == nc, f'{weights} ({ncm} classes) trained on different --data than what you passed ({nc} ' \
                               f'classes). Pass correct combination of --weights and --data that are trained together.'
         model.warmup(imgsz=(1 if pt else batch_size, 3, imgsz, imgsz), caption_idx = caption_idx)  # warmup
@@ -248,6 +248,7 @@ def run(
                                        batch_size,
                                        stride,
                                        single_cls,
+                                       hyp = model.hyp,
                                        pad=pad,
                                        rect=rect,
                                        workers=workers,

@@ -395,7 +395,7 @@ class RepNCSPCIB(nn.Module):
         self.cv2 = Conv(c1, c_, 1, 1)
         self.cv3 = Conv(2 * c_, c2, 1)  # optional act=FReLU(c2)
         self.m = nn.Sequential(*(CIB(c_, c_, shortcut, e=1.0) for _ in range(n)))
-      
+
     def forward(self, x):
         return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
 
@@ -572,12 +572,12 @@ class Silence(nn.Module):
         super(Silence, self).__init__()
     def forward(self, x):
         return x
-    
-    
+
+
 class SG(nn.Module):
     def __init__(self):
         super(SG, self).__init__()
-    def forward(self, x):    
+    def forward(self, x):
         return x.detach()
 
 
@@ -643,8 +643,8 @@ class RepNCSPELAN4B(nn.Module):
         y.extend(m(y[-1]) for m in [self.cv2, self.cv3])
         y = torch.cat(y, 1)
         return torch.cat((self.cv4(y), self.cvcap(y.detach())), 1)
-        
-        
+
+
 class RepNCSPCIBELAN4(nn.Module):
     # csp-elan
     def __init__(self, c1, c2, c3, c4, c5=1):  # ch_in, ch_out, number, shortcut, groups, expansion
@@ -654,12 +654,12 @@ class RepNCSPCIBELAN4(nn.Module):
         self.cv2 = nn.Sequential(RepNCSPCIB(c3//2, c4, c5), Conv(c4, c4, 3, 1, g=c4), Conv(c4, c4, 1, 1))
         self.cv3 = nn.Sequential(RepNCSPCIB(c4, c4, c5), Conv(c4, c4, 3, 1, g=c4), Conv(c4, c4, 1, 1))
         self.cv4 = Conv(c3+(2*c4), c2, 1, 1)
-       
+
     def forward(self, x):
         y = list(self.cv1(x).chunk(2, 1))
         y.extend((m(y[-1])) for m in [self.cv2, self.cv3])
         return self.cv4(torch.cat(y, 1))
-        
+
     def forward_split(self, x):
         y = list(self.cv1(x).split((self.c, self.c), 1))
         y.extend(m(y[-1]) for m in [self.cv2, self.cv3])
@@ -718,9 +718,9 @@ class CBFuse(nn.Module):
         return out
 
 #################
-        
+
 #################
-        
+
 class CIB(nn.Module):
     # yolov10
     def __init__(self, c1, c2, shortcut=True, e=0.5):
@@ -736,9 +736,9 @@ class CIB(nn.Module):
             Conv(2 * c_, c2, 1),
             Conv(c2, c2, 3, g=c2),
         )
-        
+
         self.add = shortcut and c1 == c2
-      
+
     def forward(self, x):
         """'forward()' applies the YOLO FPN to input data."""
         return x + self.cv1(x) if self.add else self.cv1(x)
@@ -772,7 +772,7 @@ class Attention(nn.Module):
         x = (v @ attn.transpose(-2, -1)).view(B, -1, H, W) + self.pe(v.reshape(B, -1, H, W))
         x = self.proj(x)
         return x
-    
+
 
 class PSA(nn.Module):
     # yolov10
@@ -794,7 +794,7 @@ class PSA(nn.Module):
         b = b + self.attn(b)
         b = b + self.ffn(b)
         return self.cv2(torch.cat((a, b), 1))
-    
+
 
 class SCDown(nn.Module):
     def __init__(self, c1, c2, k, s):
@@ -856,6 +856,7 @@ class DetectMultiBackend(nn.Module):
         if pt:  # PyTorch
             model = attempt_load(weights if isinstance(weights, list) else w, device=device, inplace=True, fuse=fuse)
             hyp = model.hyp
+            nc = model.yaml['nc']
             stride = max(int(model.stride.max()), 32)  # model stride
             names = model.module.names if hasattr(model, 'module') else model.names  # get class names
             model.half() if fp16 else model.float()
