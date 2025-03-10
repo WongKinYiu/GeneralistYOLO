@@ -46,6 +46,7 @@ seaborn>=0.11.0
 albumentations>=1.0.3
 pycocotools>=2.0
 pycocoevalcap>=1.2  # caption
+panopticapi @ git+https://github.com/cocodataset/panopticapi@master
 einops
 contextlib
 transformers==4.46.2  # for caption
