@@ -39,6 +39,13 @@ nvidia-docker run --name gyolo -it -v your_coco_path/:/coco/ -v your_code_path/:
 
 <details><summary> <b>expand</b> </summary>
 
+#### Packages
+```
+pip install -r requirements.txt
+```
+
+**Note: java is required for pycocoevalcap tool**
+
 #### Dataset
 
 We use [MS COCO Dataset](https://cocodataset.org/#download).\
