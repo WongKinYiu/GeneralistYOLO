@@ -619,7 +619,7 @@ class Grit(nn.Module):
         self.config = {
             'use_gri_feat': True,
             'use_reg_feat': True,
-            'grid_feat_dim': 768,
+            'grid_feat_dim': 512,
             'beam_size': 5,
             'beam_len': 20,
             'dropout': 0.2,
@@ -638,7 +638,7 @@ class Grit(nn.Module):
             #'eos_idx': 102,  # [SEP]
 
             'max_len': 128,
-            'd_model': 512,
+            'd_model': 256,
             'n_heads': 8,
             'd_ff': 512,
 
