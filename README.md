@@ -17,6 +17,8 @@ MS COCO
 | Model | Size | \#Param. | FLOPs |  AP<sub>e2e/nms</sub><sup>box</sup> | AP<sub>e2e/nms</sub><sup>mask</sup>  | mIoU<sub>164k/10k</sub><sup>semantic</sup>  | mIoU<sup>stuff</sup> | PQ<sup>panoptic</sup> | BLEU@4<sup>caption</sup> | CIDEr<sup>caption</sup> |
 | :-- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
 | [**GeneralistYOLO**]() | 640 | 32.5M | \~122.2G | **52.4%/52.8%** | **43.0%/43.1%** | **44.7%/52.0%** | **59.2%** | **44.2%** | **38.7** | **122.1** |
+| [**GYOLO**](https://github.com/WongKinYiu/GeneralistYOLO/releases/download/Pre-release/gyolo.pt) | 640 | 32.5M | \~122.2G | **52.3%/** | **42.9%/** | **44.5%/** | **59.2%** | **44.3%** | **38.9** | **122.8** |
+| [**GYOLO-X**](https://github.com/WongKinYiu/GeneralistYOLO/releases/download/Pre-release/gyolo-x.pt) | 640 | - | - | **53.3%/** | **43.8%/** | **46.0%/** | **59.9%** | **45.4%** | **39.2** | **123.9** |
 <!--| [****]() |  | M | G | **%/%** | **%/%** | **%/%** | **%** | **%** | **** | **** |-->
 
 ## Installation
