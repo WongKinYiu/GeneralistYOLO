@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 import torch
 
 
@@ -11,6 +14,19 @@ def caption(weights = 'gyolo.pt', autoshape = True, _verbose = True, device = No
 
     if not _verbose:
         LOGGER.setLevel(logging.WARNING)
+
+    requirements_path = Path(__file__).resolve().parent / 'requirements.txt'
+    if requirements_path.exists():
+        install_result = subprocess.run(
+            [sys.executable, '-m', 'pip', 'install', '-r', str(requirements_path)],
+            stdout = subprocess.PIPE,
+            stderr = subprocess.STDOUT,
+            text = True,
+        )
+        if 0 != install_result.returncode:
+            LOGGER.warning('WARNING ⚠️ Failed to install requirements from requirements.txt automatically.')
+            if install_result.stdout:
+                LOGGER.warning(install_result.stdout)
 
     check_requirements(exclude = ('opencv-python', 'tensorboard', 'thop'))
 
