@@ -1,6 +1,51 @@
 import torch
 
 
+def caption(weights = 'gyolo.pt', autoshape = True, _verbose = True, device = None):
+    from pathlib import Path
+
+    from models.common import DetectMultiBackend
+    from utils.downloads import attempt_download
+    from utils.general import LOGGER, check_requirements, logging
+    from utils.torch_utils import select_device
+
+    if not _verbose:
+        LOGGER.setLevel(logging.WARNING)
+
+    check_requirements(exclude = ('opencv-python', 'tensorboard', 'thop'))
+
+    if not weights:
+        weights = 'gyolo.pt'
+
+    weight_path = Path(weights)
+    if not weight_path.is_absolute():
+        candidate = Path(__file__).resolve().parent / 'weights' / weight_path.name
+        if candidate.exists():
+            weight_path = candidate
+        else:
+            candidate = Path(__file__).resolve().parent / weight_path
+            if candidate.exists():
+                weight_path = candidate
+
+    if not weight_path.exists():
+        weight_path = attempt_download(str(weight_path))
+
+    data_path = Path(__file__).resolve().parent / 'data' / 'coco.yaml'
+    device = select_device(device)
+    model = DetectMultiBackend(
+        str(weight_path),
+        device = device,
+        dnn = False,
+        data = str(data_path),
+        fp16 = False,
+    )
+
+    if not _verbose:
+        LOGGER.setLevel(logging.INFO)
+
+    return model.to(device)
+
+
 def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbose=True, device=None):
     """Creates or loads a YOLO model
 
