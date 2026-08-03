@@ -4,6 +4,115 @@ import sys
 import torch
 
 
+def _create_src_mask(src):
+    from utils.caption.caption_utils import create_src_mask
+
+    if torch.is_tensor(src):
+        src = [src]
+    elif not isinstance(src, (list, tuple)):
+        raise TypeError('src must be a tensor or a list of tensors')
+
+    if 0 == len(src):
+        raise ValueError('src must not be empty')
+
+    return create_src_mask(src)
+
+
+def _stuff_to_panoptic(self, stuff_masks, overlap_mask = None):
+    from utils.coco_utils import getCocoIds, getMappingId, getMappingIndex, idToPanopticId
+
+    if not torch.is_tensor(stuff_masks):
+        stuff_masks = torch.as_tensor(stuff_masks)
+
+    if 4 == stuff_masks.dim():
+        stuff_masks = stuff_masks[0]  # [b, class, h, w] -> [class, h, w]
+    if 3 != stuff_masks.dim():
+        raise ValueError('stuff_masks must be a 3D tensor of shape [class, h, w]')
+
+    device = getattr(self, 'device', None)
+    if device is None:
+        try:
+            device = next(self.parameters()).device
+        except Exception:
+            device = torch.device('cpu')
+
+    stuff_masks = stuff_masks.to(device = device)
+    instance_num = len(getCocoIds(name = 'instances'))
+    panoptic_ids = getCocoIds(name = 'panoptic')
+    panoptic_num = len(panoptic_ids)
+    panoptic_stuff_num = panoptic_num - instance_num
+
+    if stuff_masks.shape[0] <= instance_num:
+        return torch.zeros((0, *stuff_masks.shape[1 :]), dtype = torch.bool, device = device)
+
+    stuff_masks = stuff_masks[instance_num : ].to(device = device)
+    panoptic_stuff_masks = torch.zeros((panoptic_stuff_num, *stuff_masks.shape[1 :]), dtype = torch.bool, device = device)
+
+    if overlap_mask is None:
+        overlap_mask = torch.zeros(stuff_masks.shape[1 :], dtype = torch.bool, device = device)
+    else:
+        overlap_mask = overlap_mask.to(device = device, dtype = torch.bool)
+
+    for idx, stuff_mask in enumerate(stuff_masks):
+        stuff_id = getMappingId(idx + instance_num)
+        panoptic_stuff_id = idToPanopticId(stuff_id)
+        if 0 == panoptic_stuff_id:
+            continue
+
+        panoptic_stuff_idx = getMappingIndex(panoptic_stuff_id, name = 'panoptic') - instance_num
+        if (0 <= panoptic_stuff_idx) and (panoptic_stuff_idx < panoptic_stuff_masks.shape[0]):
+            mask = (0 < stuff_mask).to(dtype = torch.bool)
+            if overlap_mask.shape == mask.shape:
+                mask = torch.logical_and(mask, torch.logical_not(overlap_mask))
+            panoptic_stuff_masks[panoptic_stuff_idx] = torch.logical_or(panoptic_stuff_masks[panoptic_stuff_idx], mask)
+
+    return panoptic_stuff_masks
+
+
+def _get_caption_module(model):
+    container = model
+    if hasattr(container, 'module'):
+        container = container.module
+    if hasattr(container, 'model'):
+        container = container.model
+    if hasattr(container, 'model'):
+        container = container.model
+    return container
+
+
+def _find_caption_layer(model):
+    from utils.model_utils import find_layer
+
+    container = _get_caption_module(model)
+    layer_idx = find_layer(container, ['Caption', 'Grit'])
+    return container, layer_idx
+
+
+def _set_src_mask(self, src, use_beam_search = True, beam_size = 5, out_size = 1, return_probs = False):
+    _, src_mask = _create_src_mask(src)
+    container, layer_idx = _find_caption_layer(self)
+    if layer_idx is None:
+        raise AttributeError('No caption layer found in model')
+
+    device = getattr(self, 'device', None)
+    if device is None:
+        try:
+            device = next(self.parameters()).device
+        except Exception:
+            device = torch.device('cpu')
+
+    container[layer_idx].set_params(
+        src_mask.to(device),
+        None,
+        None,
+        use_beam_search = use_beam_search,
+        beam_size = beam_size,
+        out_size = out_size,
+        return_probs = return_probs,
+    )
+    return src_mask
+
+
 def caption(weights = 'gyolo.pt', autoshape = True, _verbose = True, device = None):
     from pathlib import Path
 
@@ -59,7 +168,11 @@ def caption(weights = 'gyolo.pt', autoshape = True, _verbose = True, device = No
     if not _verbose:
         LOGGER.setLevel(logging.INFO)
 
-    return model.to(device)
+    model = model.to(device)
+    setattr(model, 'create_src_mask', _create_src_mask)
+    setattr(model, 'set_src_mask', _set_src_mask.__get__(model, type(model)))
+    setattr(model, 'stuff_to_panoptic', _stuff_to_panoptic.__get__(model, type(model)))
+    return model
 
 
 def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbose=True, device=None):
