@@ -1,7 +1,28 @@
 import subprocess
 import sys
+from pathlib import Path
 
 import torch
+
+
+def _resolve_repo_path(path):
+    if not path:
+        return path
+
+    path_obj = Path(path)
+    if path_obj.is_absolute():
+        return str(path_obj)
+
+    repo_root = Path(__file__).resolve().parent
+    candidate = (repo_root / path_obj).resolve()
+    if candidate.exists():
+        return str(candidate)
+
+    cwd_candidate = (Path.cwd() / path_obj).resolve()
+    if cwd_candidate.exists():
+        return str(cwd_candidate)
+
+    return str(candidate)
 
 
 def _create_src_mask(src):
@@ -67,6 +88,179 @@ def _stuff_to_panoptic(self, stuff_masks, overlap_mask = None):
             panoptic_stuff_masks[panoptic_stuff_idx] = torch.logical_or(panoptic_stuff_masks[panoptic_stuff_idx], mask)
 
     return panoptic_stuff_masks
+
+
+def _process(self, im, augment = False, visualize = False, imgsz = 640, conf_thres = 0.25, iou_thres = 0.45):
+    import cv2
+    import numpy as np
+    import torch.nn.functional as F
+
+    from utils.augmentations import letterbox
+    from utils.caption.caption_utils import bert_tokenizer
+    from utils.coco_utils import getCocoIds, getCocoName, getMappingId
+    from utils.general import non_max_suppression, scale_boxes
+    from utils.segment.general import process_mask
+
+    device = getattr(self, 'device', None)
+    if device is None:
+        try:
+            device = next(self.parameters()).device
+        except Exception:
+            device = torch.device('cpu')
+
+    if isinstance(im, (str, bytes)):
+        im0 = cv2.imread(str(im))
+        if im0 is None:
+            raise FileNotFoundError(f'Could not read image: {im}')
+    else:
+        if torch.is_tensor(im):
+            im = im.detach().cpu().numpy()
+
+        if not isinstance(im, np.ndarray):
+            im = np.asarray(im)
+
+        if (4 == im.ndim) and (1 == im.shape[0]):
+            im = im[0]  # remove batch
+
+        if (3 == im.ndim) and (1 <= im.shape[0] <= 4) and (im.shape[-1] not in (1, 3, 4)):
+            im = np.transpose(im, (1, 2, 0))  # (c, h, w) -> (h, w, c)
+
+        if 2 == im.ndim:
+            im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)  # gray to BGR
+
+        if (3 == im.ndim) and (1 == im.shape[2]):
+            im = np.repeat(im, 3, axis = 2)  # gray to BGR
+
+        im0 = im.copy()
+
+    if np.uint8 != im0.dtype:
+        im0 = im0.astype(np.uint8)
+
+    im_letterbox, _, _ = letterbox(im0, new_shape = (imgsz, imgsz), auto = False, scaleup = False)
+    src_img = torch.from_numpy(im_letterbox).permute(2, 0, 1).contiguous().to(device = device)
+    input_img = torch.from_numpy(im_letterbox).permute(2, 0, 1).contiguous().float().to(device = device) / 255.0
+    input_img = input_img[None]
+
+    if hasattr(self, 'set_src_mask'):
+        self.set_src_mask([src_img])
+
+    with torch.no_grad():
+        output = self(input_img, augment = augment, visualize = visualize)
+
+    if isinstance(output, dict):
+        pred, out = output['detect'][: 2]
+        pred_caption = output.get('captions')
+    else:
+        pred, out = output[: 2]
+        pred_caption = None
+
+    proto = out[2]
+    psemasks = out[3]
+
+    pred = non_max_suppression(pred, conf_thres = conf_thres, iou_thres = iou_thres, classes = None, agnostic = False, max_det = 1000, nm = 32)
+    pred = pred[0] if pred else None
+
+    if pred is not None and 0 != len(pred):
+        det = pred.detach().clone()
+        instance_masks = process_mask(proto[0], det[:, 6 :], det[:, : 4], input_img.shape[-2 :], upsample = True)
+        if 2 == instance_masks.dim():
+            instance_masks = instance_masks.unsqueeze(0)
+        instance_boxes = scale_boxes((im_letterbox.shape[0], im_letterbox.shape[1]), det[:, :4], (im0.shape[0], im0.shape[1])).round()
+    else:
+        det = None
+        instance_masks = None
+        instance_boxes = None
+
+    if psemasks is not None:
+        if 4 == psemasks.dim():
+            psemasks = psemasks[0]
+        if 3 != psemasks.dim():
+            psemasks = psemasks.squeeze(0)
+        if 3 == psemasks.dim():
+            psemasks = psemasks.unsqueeze(0)
+        semantic_mask = psemasks.to(device = device).float()
+        semantic_mask = F.interpolate(semantic_mask, size = (im0.shape[0], im0.shape[1]), mode = 'bilinear', align_corners = False)
+        semantic_flat = semantic_mask.flatten(start_dim = 1).permute(1, 0)
+        max_idx = semantic_flat.argmax(1)
+        semantic_one_hot = torch.zeros(semantic_flat.shape, device = device).scatter(1, max_idx.unsqueeze(1), 1.0)
+        semantic_one_hot = semantic_one_hot.permute(1, 0).reshape(semantic_mask.shape)
+    else:
+        semantic_one_hot = None
+
+    label_ids = []
+    mask_list = []
+    box_list = []
+    occupied_mask = torch.zeros((im0.shape[0], im0.shape[1]), dtype = torch.bool, device = device)
+
+    if det is not None:
+        for idx, (mask, box) in enumerate(zip(instance_masks, instance_boxes)):
+            mask = mask.detach().to(device = device)
+            mask = F.interpolate(mask.unsqueeze(0).unsqueeze(0).float(), size = (im0.shape[0], im0.shape[1]), mode = 'bilinear', align_corners = False)[0, 0]
+            mask = (0.5 < mask).to(dtype = torch.bool)
+            if 0 == mask.sum():
+                continue
+            mask = torch.logical_and(mask, torch.logical_not(occupied_mask))
+            if 0 == mask.sum():
+                continue
+            occupied_mask = torch.logical_or(occupied_mask, mask)
+            label_ids.append(int(getMappingId(int(det[idx, 5]))))
+            mask_list.append(mask.cpu())
+            box_list.append(torch.tensor([float(x) for x in box.tolist()], dtype = torch.float32, device = 'cpu'))
+
+    if semantic_one_hot is not None:
+        panoptic_stuff_masks = self.stuff_to_panoptic(semantic_one_hot, overlap_mask = occupied_mask)
+        panoptic_stuff_masks = panoptic_stuff_masks.to(dtype = torch.bool)
+        for idx, mask in enumerate(panoptic_stuff_masks):
+            mask = mask.detach().to(device = device)
+            if 0 == mask.sum():
+                continue
+            mask = torch.logical_and(mask, torch.logical_not(occupied_mask))
+            if 0 == mask.sum():
+                continue
+            occupied_mask = torch.logical_or(occupied_mask, mask)
+            panoptic_id = getMappingId(idx + len(getCocoIds(name = 'instances')), name = 'panoptic')
+            label_ids.append(int(panoptic_id))
+            mask_list.append(mask.cpu())
+            ys, xs = torch.where(mask)
+            if 0 == len(xs):
+                box_list.append(torch.tensor([0.0, 0.0, 0.0, 0.0], dtype = torch.float32, device = 'cpu'))
+            else:
+                box_list.append(torch.tensor([float(xs.min().item()), float(ys.min().item()), float(xs.max().item()), float(ys.max().item())], dtype = torch.float32, device = 'cpu'))
+
+    label_names = [getCocoName(label_id) for label_id in label_ids]
+    labels = torch.tensor(label_ids, dtype = torch.int64) if (0 != len(label_ids)) else torch.empty((0,), dtype = torch.int64)
+    masks = torch.stack(mask_list, dim = 0) if (0 != len(mask_list)) else torch.empty((0, im0.shape[0], im0.shape[1]), dtype = torch.bool)
+    boxes = torch.stack(box_list, dim = 0) if (0 != len(box_list)) else torch.empty((0, 4), dtype = torch.float32)
+
+    caption_text = None
+    if pred_caption is not None:
+        if isinstance(pred_caption, (list, tuple)):
+            pred_caption = pred_caption[0]
+        if torch.is_tensor(pred_caption):
+            pred_caption = pred_caption.detach().cpu()
+        if torch.is_tensor(pred_caption):
+            if 1 < pred_caption.dim():
+                if 1 == pred_caption.shape[0]:
+                    pred_caption = pred_caption[0]
+                else:
+                    pred_caption = pred_caption[0]
+            pred_caption = pred_caption.tolist()
+        if not isinstance(pred_caption, list):
+            pred_caption = [pred_caption]
+        if hasattr(self, 'hyp') and ('caption_tokenizer' in self.hyp) and ('custom' == self.hyp['caption_tokenizer']):
+            vocab_path = self.hyp.get('caption_vocab_path')
+            if isinstance(vocab_path, str):
+                vocab_path = _resolve_repo_path(vocab_path)
+                self.hyp['caption_vocab_path'] = vocab_path
+            tokenizer = bert_tokenizer(model = self.hyp['caption_tokenizer'], vocab = vocab_path, do_lower = True)
+        else:
+            tokenizer = bert_tokenizer(do_lower = True)
+        try:
+            caption_text = tokenizer.get_decoded_caption(pred_caption, skip_special_tokens = True)
+        except Exception:
+            caption_text = ''
+
+    return labels, label_names, masks, boxes, caption_text
 
 
 def _get_caption_module(model):
@@ -172,6 +366,7 @@ def caption(weights = 'gyolo.pt', autoshape = True, _verbose = True, device = No
     setattr(model, 'create_src_mask', _create_src_mask)
     setattr(model, 'set_src_mask', _set_src_mask.__get__(model, type(model)))
     setattr(model, 'stuff_to_panoptic', _stuff_to_panoptic.__get__(model, type(model)))
+    setattr(model, 'process', _process.__get__(model, type(model)))
     return model
 
 

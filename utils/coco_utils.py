@@ -25,6 +25,18 @@ all_instances_ids = [
     81, 82, 84, 85, 86, 87, 88, 89, 90,
 ]
 
+all_instance_names = [
+   'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
+   'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep',
+   'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella',
+   'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove',
+   'skateboard', 'surfboard', 'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon',
+   'bowl', 'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut',
+   'cake', 'chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet',
+   'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster',
+   'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush',
+]
+
 all_stuff_ids = [
     92, 93, 94, 95, 96, 97, 98, 99, 100,
     101, 102, 103, 104, 105, 106, 107, 108, 109, 110,
@@ -42,6 +54,23 @@ all_stuff_ids = [
     0,
 ]
 
+all_stuff_names = [
+    'banner', 'blanket', 'branch', 'bridge', 'building-other', 'bush', 'cabinet', 'cage', 'cardboard',
+    'carpet', 'ceiling-other', 'ceiling-tile', 'cloth', 'clothes', 'clouds', 'counter', 'cupboard', 'curtain', 'desk-stuff',
+    'dirt', 'door-stuff', 'fence', 'floor-marble', 'floor-other', 'floor-stone', 'floor-tile', 'floor-wood', 'flower', 'fog',
+    'food-other', 'fruit', 'furniture-other', 'grass', 'gravel', 'ground-other', 'hill', 'house', 'leaves', 'light',
+    'mat', 'metal', 'mirror-stuff', 'moss', 'mountain', 'mud', 'napkin', 'net', 'paper', 'pavement',
+    'pillow', 'plant-other', 'plastic', 'platform', 'playingfield', 'railing', 'railroad', 'river', 'road', 'rock',
+    'roof', 'rug', 'salad', 'sand', 'sea', 'shelf', 'sky-other', 'skyscraper', 'snow', 'solid-other',
+    'stairs', 'stone', 'straw', 'structural-other', 'table', 'tent', 'textile-other', 'towel', 'tree', 'vegetable',
+    'wall-brick','wall-concrete', 'wall-other', 'wall-panel', 'wall-stone', 'wall-tile', 'wall-wood', 'water-other', 'waterdrops', 'window-blind',
+    'window-other', 'wood',
+    # other
+    'other',
+    # unlabeled
+    'unlabeled',
+]
+
 # panoptic id: https://github.com/cocodataset/panopticapi/blob/master/panoptic_coco_categories.json
 panoptic_stuff_ids = [
     92, 93, 95, 100,
@@ -57,6 +86,22 @@ panoptic_stuff_ids = [
     191, 192, 193, 194, 195, 196, 197, 198, 199, 200,
     # unlabeled
     0,
+]
+
+panoptic_stuff_names = [
+    'banner', 'blanket', 'bridge', 'cardboard',
+    'counter', 'curtain',
+    'door-stuff', 'floor-wood', 'flower',
+    'fruit', 'gravel', 'house', 'light',
+    'mirror-stuff', 'net',
+    'plant-other', 'platform', 'playingfield', 'railroad', 'river', 'road',
+    'roof', 'sand', 'sea', 'shelf', 'snow',
+    'stairs', 'tent', 'towel',
+    'wall-brick', 'wall-stone', 'wall-tile', 'wall-wood', 'water-other', 'window-blind',
+    'window-other', 'tree-merged', 'fence-merged', 'ceiling-merged', 'sky-other-merged', 'cabinet-merged', 'table-merged', 'floor-other-merged',
+    'pavement-merged', 'mountain-merged', 'grass-merged', 'dirt-merged', 'paper-merged', 'food-other-merged', 'building-other-merged', 'rock-merged', 'wall-other-merged', 'rug-merged',
+    # unlabeled
+    'unlabeled',
 ]
 
 # details: https://cocodataset.org/#panoptic-eval
@@ -116,6 +161,11 @@ def getMappingId(index, name = 'semantic'):
 def getMappingIndex(id, name = 'semantic'):
     ids = getCocoIds(name = name)
     return ids.index(id)
+
+def getCocoName(id):
+    ids = all_instances_ids + all_stuff_ids + panoptic_stuff_ids
+    names = all_instance_names + all_stuff_names + panoptic_stuff_names
+    return names[ids.index(id)]
 
 def idToPanopticId(id):
     if (id in all_stuff_ids) and (id not in panoptic_stuff_ids):
