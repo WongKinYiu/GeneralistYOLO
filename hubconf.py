@@ -1,8 +1,53 @@
+import importlib.util
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import torch
+
+
+def _ensure_repo_on_path():
+    repo_root = Path(__file__).resolve().parent
+    for candidate in (repo_root, repo_root.parent):
+        candidate_str = str(candidate)
+        if candidate_str not in sys.path:
+            sys.path.insert(0, candidate_str)
+    return repo_root
+
+
+_ensure_repo_on_path()
+
+
+def _load_repo_module(module_name, relative_path):
+    repo_root = Path(__file__).resolve().parent
+    module_path = repo_root / relative_path
+    if not module_path.exists():
+        raise ModuleNotFoundError(f'Cannot find module file: {module_path}')
+
+    parent_name = module_name.rpartition('.')[0]
+    if parent_name:
+        parent_dir = str(repo_root / parent_name.replace('.', '/'))
+        parent_module = sys.modules.get(parent_name)
+        if parent_module is None:
+            parent_module = types.ModuleType(parent_name)
+            parent_module.__path__ = [parent_dir]
+            sys.modules[parent_name] = parent_module
+        elif hasattr(parent_module, '__path__'):
+            existing_paths = list(parent_module.__path__)
+            if parent_dir not in existing_paths:
+                parent_module.__path__ = existing_paths + [parent_dir]
+        else:
+            parent_module.__path__ = [parent_dir]
+
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    if spec is None or spec.loader is None:
+        raise ModuleNotFoundError(f'Cannot create import spec for {module_name}')
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def _resolve_repo_path(path):
@@ -310,7 +355,9 @@ def _set_src_mask(self, src, use_beam_search = True, beam_size = 5, out_size = 1
 def caption(weights = 'gyolo.pt', autoshape = True, _verbose = True, device = None):
     from pathlib import Path
 
-    from models.common import DetectMultiBackend
+    _ensure_repo_on_path()
+    common_module = _load_repo_module('models.common', 'models/common.py')
+    DetectMultiBackend = common_module.DetectMultiBackend
     from utils.downloads import attempt_download
     from utils.general import LOGGER, check_requirements, logging
     from utils.torch_utils import select_device
@@ -387,9 +434,16 @@ def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbo
     """
     from pathlib import Path
 
-    from models.common import AutoShape, DetectMultiBackend
-    from models.experimental import attempt_load
-    from models.yolo import ClassificationModel, DetectionModel, SegmentationModel
+    _ensure_repo_on_path()
+    common_module = _load_repo_module('models.common', 'models/common.py')
+    AutoShape = common_module.AutoShape
+    DetectMultiBackend = common_module.DetectMultiBackend
+    experimental_module = _load_repo_module('models.experimental', 'models/experimental.py')
+    attempt_load = experimental_module.attempt_load
+    yolo_module = _load_repo_module('models.yolo', 'models/yolo.py')
+    ClassificationModel = yolo_module.ClassificationModel
+    DetectionModel = yolo_module.DetectionModel
+    SegmentationModel = yolo_module.SegmentationModel
     from utils.downloads import attempt_download
     from utils.general import LOGGER, check_requirements, intersect_dicts, logging
     from utils.torch_utils import select_device
