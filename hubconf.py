@@ -84,6 +84,27 @@ def _create_src_mask(src):
     return create_src_mask(src)
 
 
+def _unletterbox(mask, letterboxed_shape, pad, original_shape):
+    letterboxed_height, letterboxed_width = letterboxed_shape
+    original_height, original_width = original_shape
+    pad_width, pad_height = pad
+
+    top = int(round(pad_height - 0.1))
+    bottom = letterboxed_height - int(round(pad_height + 0.1))
+    left = int(round(pad_width - 0.1))
+    right = letterboxed_width - int(round(pad_width + 0.1))
+
+    cropped_mask = mask[top : bottom, left : right]
+    resized_mask = torch.nn.functional.interpolate(
+        cropped_mask.unsqueeze(0).unsqueeze(0).float(),
+        size = (original_height, original_width),
+        mode = 'bilinear',
+        align_corners = False,
+    )
+
+    return resized_mask[0, 0]
+
+
 def _stuff_to_panoptic(self, stuff_masks, overlap_mask = None):
     from utils.coco_utils import getCocoIds, getMappingId, getMappingIndex, idToPanopticId
 
@@ -157,6 +178,8 @@ def _process(self, im, augment = False, visualize = False, imgsz = 640, conf_thr
         im0 = cv2.imread(str(im))
         if im0 is None:
             raise FileNotFoundError(f'Could not read image: {im}')
+
+        im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2RGB)
     else:
         if torch.is_tensor(im):
             im = im.detach().cpu().numpy()
@@ -171,17 +194,17 @@ def _process(self, im, augment = False, visualize = False, imgsz = 640, conf_thr
             im = np.transpose(im, (1, 2, 0))  # (c, h, w) -> (h, w, c)
 
         if 2 == im.ndim:
-            im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)  # gray to BGR
+            im = cv2.cvtColor(im, cv2.COLOR_GRAY2RGB)  # gray to RGB
 
         if (3 == im.ndim) and (1 == im.shape[2]):
-            im = np.repeat(im, 3, axis = 2)  # gray to BGR
+            im = np.repeat(im, 3, axis = 2)  # gray to RGB
 
         im0 = im.copy()
 
     if np.uint8 != im0.dtype:
         im0 = im0.astype(np.uint8)
 
-    im_letterbox, _, _ = letterbox(im0, new_shape = (imgsz, imgsz), auto = False, scaleup = False)
+    im_letterbox, letterbox_ratio, letterbox_pad = letterbox(im0, new_shape = (imgsz, imgsz), auto = False, scaleup = False)
     src_img = torch.from_numpy(im_letterbox).permute(2, 0, 1).contiguous().to(device = device)
     input_img = torch.from_numpy(im_letterbox).permute(2, 0, 1).contiguous().float().to(device = device) / 255.0
     input_img = input_img[None]
@@ -224,7 +247,11 @@ def _process(self, im, augment = False, visualize = False, imgsz = 640, conf_thr
         if 3 == psemasks.dim():
             psemasks = psemasks.unsqueeze(0)
         semantic_mask = psemasks.to(device = device).float()
-        semantic_mask = F.interpolate(semantic_mask, size = (im0.shape[0], im0.shape[1]), mode = 'bilinear', align_corners = False)
+        semantic_mask = F.interpolate(semantic_mask, size = (input_img.shape[-2], input_img.shape[-1]), mode = 'bilinear', align_corners = False)
+        semantic_mask = torch.stack([
+            _unletterbox(channel, im_letterbox.shape[: 2], letterbox_pad, (im0.shape[0], im0.shape[1]))
+            for channel in semantic_mask[0]
+        ]).unsqueeze(0)
         semantic_flat = semantic_mask.flatten(start_dim = 1).permute(1, 0)
         max_idx = semantic_flat.argmax(1)
         semantic_one_hot = torch.zeros(semantic_flat.shape, device = device).scatter(1, max_idx.unsqueeze(1), 1.0)
@@ -240,7 +267,7 @@ def _process(self, im, augment = False, visualize = False, imgsz = 640, conf_thr
     if det is not None:
         for idx, (mask, box) in enumerate(zip(instance_masks, instance_boxes)):
             mask = mask.detach().to(device = device)
-            mask = F.interpolate(mask.unsqueeze(0).unsqueeze(0).float(), size = (im0.shape[0], im0.shape[1]), mode = 'bilinear', align_corners = False)[0, 0]
+            mask = _unletterbox(mask, im_letterbox.shape[: 2], letterbox_pad, (im0.shape[0], im0.shape[1]))
             mask = (0.5 < mask).to(dtype = torch.bool)
             if 0 == mask.sum():
                 continue
