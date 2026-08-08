@@ -204,7 +204,9 @@ def _process(self, im, augment = False, visualize = False, imgsz = 640, conf_thr
     if np.uint8 != im0.dtype:
         im0 = im0.astype(np.uint8)
 
-    im_letterbox, letterbox_ratio, letterbox_pad = letterbox(im0, new_shape = (imgsz, imgsz), auto = False, scaleup = False)
+    stride = int(self.stride) if (hasattr(self, 'stride')) else 32
+    auto = bool(self.pt) if (hasattr(self, 'pt')) else True
+    im_letterbox, letterbox_ratio, letterbox_pad = letterbox(im0, new_shape = (imgsz, imgsz), auto = auto, stride = stride, scaleup = False)
     src_img = torch.from_numpy(im_letterbox).permute(2, 0, 1).contiguous().to(device = device)
     input_img = torch.from_numpy(im_letterbox).permute(2, 0, 1).contiguous().float().to(device = device) / 255.0
     input_img = input_img[None]
@@ -252,7 +254,7 @@ def _process(self, im, augment = False, visualize = False, imgsz = 640, conf_thr
             _unletterbox(channel, im_letterbox.shape[: 2], letterbox_pad, (im0.shape[0], im0.shape[1]))
             for channel in semantic_mask[0]
         ]).unsqueeze(0)
-        semantic_flat = semantic_mask.flatten(start_dim = 1).permute(1, 0)
+        semantic_flat = semantic_mask[0].flatten(start_dim = 1).permute(1, 0)
         max_idx = semantic_flat.argmax(1)
         semantic_one_hot = torch.zeros(semantic_flat.shape, device = device).scatter(1, max_idx.unsqueeze(1), 1.0)
         semantic_one_hot = semantic_one_hot.permute(1, 0).reshape(semantic_mask.shape)
