@@ -697,7 +697,7 @@ class Grit(nn.Module):
         #    reg_feat = df.float() if (reg_feat is None) else torch.cat((reg_feat, df.float()), dim = 1)
         # select top k
         _, cls = torch.cat([xi.detach().view(shape[0], self.no, -1) for xi in det], 2).split((self.reg_max * 4, self.nc), 1)
-        _, ki = torch.topk(torch.max(cls, dim = 1)[0], k = self.k)  # shape = (b, k)
+        _, ki = torch.topk(torch.max(cls, dim = 1)[0], k = min(self.k, len(cls)))  # shape = (b, k)
         reg_feat = torch.cat([rearrange(xi, 'b c h w -> b (h w) c').float() for xi in x[: self.nl]], dim = 1)#shape = (b, P3 + P4 + P5, c)
         shape = reg_feat.shape  # shape = (b, P3 + P4 + P5, c)
         reg_feat = torch.gather(reg_feat, dim = 1, index = ki.unsqueeze(2).expand(shape[0], self.k, shape[-1]))  # shape = (b, k, c)
